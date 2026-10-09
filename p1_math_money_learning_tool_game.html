@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P1 Math Supermarket Hero - Money (Dollars)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Fredoka & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
+            min-height: 100vh;
+        }
+        .bouncy {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .bouncy:hover {
+            transform: scale(1.05);
+        }
+        .bouncy:active {
+            transform: scale(0.95);
+        }
+        .glow-gold {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+        }
+        .card-flip {
+            perspective: 1000px;
+        }
+        .card-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card-flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            backface-visibility: hidden;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .floating-icon {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col min-h-screen">
+
+<script>
+    // =========================================================================
+    // TEACHER BACKEND CONFIGURATION
+    // Paste your Google Apps Script Web App URL between the quotes below:
+    // =========================================================================
+    const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFv6eSgSgsT8U2qaejQ7yxB45ynbxlRdHRvmwTjGiFEwQNFHmjrYJQ_FVy2N1PrCIT/exec";
+
+    /* Web Audio API Sound Effects Synthesizer */
+    class SoundEffects {
+        constructor() {
+            this.ctx = null;
+        }
+        init() {
+            if (!this.ctx) {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        playClick() {
+            this.init();
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.08);
+        }
+        playCorrect() {
+            this.init();
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, idx) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                gain.gain.setValueAtTime(0.25, now + idx * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now + idx * 0.08);
+                osc.stop(now + idx * 0.08 + 0.25);
+            });
+        }
+        playIncorrect() {
+            this.init();
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(140, this.ctx.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.25);
+        }
+    }
+    const soundFx = new SoundEffects();
+
+    /* Web Speech API Read-Aloud with MANDATORY "blank" Replacement */
+    let ttsEnabled = true;
+    function speakText(text) {
+        if (!ttsEnabled || !('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel(); // Stop ongoing speech
+        
+        // MANDATORY: Replaces underscores / fill-in-blanks with natural "blank" pronunciation
+        let processedText = text.replace(/_+/g, " blank ");
+        
+        const utterance = new SpeechSynthesisUtterance(processedText);
+        utterance.rate = 0.88; // Gentle speed for Primary 1
+        utterance.pitch = 1.05;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleAudio() {
+        ttsEnabled = !ttsEnabled;
+        const btn = document.getElementById('audioToggleBtn');
+        if (ttsEnabled) {
+            btn.className = "bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-full shadow-md flex items-center gap-2 transition bouncy";
+            btn.innerHTML = `🔊 <span>Audio: ON</span>`;
+            speakText("Audio read aloud is now on!");
+        } else {
+            window.speechSynthesis.cancel();
+            btn.className = "bg-slate-400 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-full shadow-md flex items-center gap-2 transition bouncy";
+            btn.innerHTML = `🔇 <span>Audio: OFF</span>`;
+        }
+        soundFx.playClick();
+    }
+</script>
+
+<header class="bg-white/90 backdrop-blur border-b border-sky-100 sticky top-0 z-40 px-4 py-3 shadow-sm">
+    <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-3">
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+            <span class="text-3xl floating-icon">🛒</span>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black text-sky-700 leading-tight">Supermarket Money Hero</h1>
+                <p class="text-xs text-slate-500 font-medium">Singapore MOE Primary 1 Mathematics • Money in Dollars ($)</p>
+            </div>
+        </div>
+
+        <!-- Student Profile & Settings -->
+        <div class="flex items-center space-x-3">
+            <!-- Audio Toggle Switch -->
+            <button id="audioToggleBtn" onclick="toggleAudio()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-full shadow-md flex items-center gap-2 transition bouncy">
+                🔊 <span>Audio: ON</span>
+            </button>
+
+            <!-- Active Student Info -->
+            <div id="studentBadge" class="hidden bg-sky-100 text-sky-800 font-bold px-3 py-1.5 rounded-full text-sm border border-sky-200">
+                👤 <span id="displayStudentName">Student</span> (<span id="displayStudentClass" class="font-semibold">P1</span>)
+            </div>
+
+            <!-- Dynamic Difficulty Switcher Button -->
+            <div id="diffSwitcher" class="hidden relative">
+                <select id="levelSelect" onchange="changeDifficultyMidGame(this.value)" class="bg-amber-100 text-amber-900 border-2 border-amber-300 font-bold py-1.5 px-3 rounded-full text-sm cursor-pointer hover:bg-amber-200 transition">
+                    <option value="Easy">Level: Easy 🌱</option>
+                    <option value="Medium" selected>Level: Medium ⭐</option>
+                    <option value="Challenge">Level: Challenge 🔥</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-6 flex-grow w-full">
+    
+    <!-- Registration Modal / Overlay -->
+    <div id="registrationModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full border-4 border-sky-300 shadow-2xl text-center relative overflow-hidden">
+            <div class="text-5xl mb-3">👋 🇸🇬</div>
+            <h2 class="text-2xl font-bold text-sky-800 mb-2">Welcome, Young Mathematician!</h2>
+            <p class="text-slate-600 text-sm mb-6">Enter your name and class to start your Supermarket Money Hero mission!</p>
+            
+            <form onsubmit="handleRegistration(event)" class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Your Full Name:</label>
+                    <input type="text" id="regName" required placeholder="e.g. Kai Xiang / Siti" class="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none text-lg font-bold text-slate-700">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Primary 1 Class:</label>
+                    <input type="text" id="regClass" required placeholder="e.g. P1 Honesty / 1 Care / 1A" class="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none text-lg font-bold text-slate-700">
+                </div>
+                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xl font-bold py-3.5 rounded-2xl shadow-lg border-b-4 border-emerald-700 bouncy transition">
+                    Start Learning Mission! 🚀
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Navigation Bar: Switch between Deck, Game, Leaderboard -->
+    <div class="flex justify-center mb-6">
+        <div class="bg-slate-200/80 p-1.5 rounded-full flex space-x-1 shadow-inner">
+            <button id="tabDeckBtn" onclick="switchTab('deck')" class="px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition bg-white text-sky-700 shadow-md">
+                📖 1. Interactive Learning Deck
+            </button>
+            <button id="tabGameBtn" onclick="switchTab('game')" class="px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition text-slate-600 hover:text-slate-900">
+                🎮 2. Practice Game
+            </button>
+            <button id="tabLeaderboardBtn" onclick="switchTab('leaderboard')" class="px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition text-slate-600 hover:text-slate-900">
+                🏆 Class Leaderboard
+            </button>
+        </div>
+    </div>
+
+    <section id="sectionDeck" class="block">
+        <div class="bg-white rounded-3xl p-6 md:p-8 border-2 border-sky-100 shadow-xl relative min-h-[500px] flex flex-col justify-between">
+            
+            <!-- Deck Progress Indicator -->
+            <div class="flex justify-between items-center mb-4">
+                <span id="deckStepTag" class="bg-sky-100 text-sky-800 text-xs font-bold px-3 py-1 rounded-full">Slide 1 of 4</span>
+                <button onclick="readCurrentSlide()" class="text-xs font-bold text-sky-600 hover:text-sky-800 flex items-center gap-1 bg-sky-50 px-3 py-1 rounded-full border border-sky-200 bouncy">
+                    📢 Read Slide Aloud
+                </button>
+            </div>
+
+            <!-- Slide Content Container -->
+            <div id="deckSlideContent" class="flex-grow flex flex-col justify-center items-center text-center">
+                <!-- Injected dynamically via JS -->
+            </div>
+
+            <!-- Deck Navigation Buttons -->
+            <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-100">
+                <button id="deckPrevBtn" onclick="prevSlide()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-6 py-2.5 rounded-full bouncy transition disabled:opacity-40">
+                    ⬅️ Back
+                </button>
+                <div id="deckDots" class="flex space-x-2"></div>
+                <button id="deckNextBtn" onclick="nextSlide()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold px-6 py-2.5 rounded-full shadow-lg border-b-4 border-sky-700 bouncy transition">
+                    Next Slide ➡️
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section id="sectionGame" class="hidden">
+        
+        <!-- Game Top Stats Bar -->
+        <div class="bg-white rounded-2xl p-4 mb-4 border border-sky-100 shadow-md flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center space-x-4">
+                <div>
+                    <span class="text-xs text-slate-400 font-bold uppercase block">Score</span>
+                    <span id="gameScore" class="text-2xl font-black text-amber-500">0</span>
+                </div>
+                <div>
+                    <span class="text-xs text-slate-400 font-bold uppercase block">Streak</span>
+                    <span id="gameStreak" class="text-2xl font-black text-rose-500">🔥 0</span>
+                </div>
+                <div>
+                    <span class="text-xs text-slate-400 font-bold uppercase block">Level</span>
+                    <span id="gameLevelBadge" class="text-sm font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">Medium</span>
+                </div>
+            </div>
+
+            <!-- Progress & Timer -->
+            <div class="flex items-center space-x-4">
+                <div id="timerContainer" class="hidden text-center">
+                    <span class="text-xs text-slate-400 font-bold uppercase block">Time Left</span>
+                    <span id="timerVal" class="text-xl font-bold text-rose-600">30s</span>
+                </div>
+                <div class="w-32 md:w-48 bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+                    <div id="gameProgressBar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <span id="questionNum" class="text-xs font-bold text-slate-500">Q 1/10</span>
+            </div>
+        </div>
+
+        <!-- Playful Mission Urgency Card -->
+        <div id="missionBanner" class="bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 px-4 py-2 rounded-2xl mb-4 font-bold text-xs md:text-sm flex items-center justify-between shadow-sm">
+            <span>🚀 Mission: Solve the money challenge to stock the class party snack store!</span>
+            <button onclick="showReflectionModal()" class="bg-white/80 hover:bg-white text-slate-800 text-xs px-2.5 py-1 rounded-full shadow bouncy">
+                🧠 Brain Rest / Reflect
+            </button>
+        </div>
+
+        <!-- Main Question Card -->
+        <div class="bg-white rounded-3xl p-6 md:p-8 border-2 border-sky-100 shadow-xl relative">
+            <!-- Question Prompt Header -->
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-grow">
+                    <h2 id="qPrompt" class="text-xl md:text-2xl font-bold text-slate-800 leading-snug">
+                        Loading question...
+                    </h2>
+                    <p id="qSubPrompt" class="text-sm text-slate-500 mt-1">Select the correct answer below:</p>
+                </div>
+                <button onclick="readQuestionAloud()" class="text-xs font-bold text-sky-600 hover:text-sky-800 bg-sky-50 p-2 rounded-xl border border-sky-200 bouncy flex-shrink-0 ml-2" title="Read Question Aloud">
+                    📢 Read
+                </button>
+            </div>
+
+            <!-- Visual Diagram / Money Manipulator Display Area -->
+            <div id="qVisualArea" class="bg-slate-50 border-2 border-dashed border-sky-200 rounded-2xl p-4 md:p-6 mb-6 flex flex-wrap justify-center items-center gap-3 min-h-[140px]">
+                <!-- SVG Money Notes / Items Rendered Here -->
+            </div>
+
+            <!-- Answer Options Grid -->
+            <div id="qOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Interactive Option Buttons Injected Here -->
+            </div>
+
+            <!-- Interactive Money Manipulator Tray Input (for Challenge/Drag-Drop mode) -->
+            <div id="manipulatorTraySection" class="hidden mt-4 pt-4 border-t border-slate-200">
+                <p class="text-xs font-bold text-slate-600 uppercase mb-2">Tap notes to put in your shopping wallet:</p>
+                <div class="flex flex-wrap justify-center gap-2 mb-3">
+                    <button onclick="addNoteToWallet(1)" class="bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-xl font-bold text-amber-800 bouncy text-sm">$1 Coin</button>
+                    <button onclick="addNoteToWallet(2)" class="bg-purple-100 border border-purple-300 px-3 py-1.5 rounded-xl font-bold text-purple-800 bouncy text-sm">$2 Note</button>
+                    <button onclick="addNoteToWallet(5)" class="bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-xl font-bold text-emerald-800 bouncy text-sm">$5 Note</button>
+                    <button onclick="addNoteToWallet(10)" class="bg-rose-100 border border-rose-300 px-3 py-1.5 rounded-xl font-bold text-rose-800 bouncy text-sm">$10 Note</button>
+                    <button onclick="addNoteToWallet(20)" class="bg-orange-100 border border-orange-300 px-3 py-1.5 rounded-xl font-bold text-orange-800 bouncy text-sm">$20 Note</button>
+                    <button onclick="addNoteToWallet(50)" class="bg-blue-100 border border-blue-300 px-3 py-1.5 rounded-xl font-bold text-blue-800 bouncy text-sm">$50 Note</button>
+                </div>
+                <div class="bg-amber-50 rounded-2xl p-3 border-2 border-amber-200 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-bold text-amber-800">Your Wallet Total:</span>
+                        <span id="walletTotal" class="text-xl font-black text-amber-600 ml-2">$0</span>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="resetWallet()" class="text-xs bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-bold hover:bg-slate-300">Clear</button>
+                        <button onclick="submitWalletAnswer()" class="text-xs bg-emerald-500 text-white px-4 py-1.5 rounded-xl font-bold hover:bg-emerald-600 bouncy">Submit Wallet Total</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="sectionLeaderboard" class="hidden">
+        <div class="bg-white rounded-3xl p-6 md:p-8 border-2 border-sky-100 shadow-xl">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-sky-800">🏆 Primary 1 Supermarket Leaderboard</h2>
+                    <p class="text-sm text-slate-500">Friendly score comparison and achievements</p>
+                </div>
+                <button onclick="fetchLeaderboardData()" class="bg-sky-100 text-sky-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-sky-200 transition">
+                    🔄 Refresh Leaderboard
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-sky-50 text-sky-900 border-b border-sky-100 text-sm">
+                            <th class="py-3 px-4 rounded-l-xl">Rank</th>
+                            <th class="py-3 px-4">Student Name</th>
+                            <th class="py-3 px-4">Class</th>
+                            <th class="py-3 px-4">Level</th>
+                            <th class="py-3 px-4 text-right rounded-r-xl">Score (pts)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardTbody" class="text-sm divide-y divide-slate-100 font-medium">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Socratic Feedback Modal -->
+    <div id="socraticModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full border-4 border-amber-300 shadow-2xl text-center">
+            <div class="text-5xl mb-2">🤔</div>
+            <h3 class="text-xl font-bold text-amber-800 mb-2">Let's Think Together!</h3>
+            <p id="socraticHintText" class="text-slate-700 text-sm mb-6 leading-relaxed bg-amber-50 p-4 rounded-2xl border border-amber-200">
+                Guiding hint text...
+            </p>
+            <button onclick="closeSocraticModal()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl shadow-md bouncy transition">
+                Try Again 💪
+            </button>
+        </div>
+    </div>
+
+    <!-- Brain Rest / Reflection Modal -->
+    <div id="reflectionModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full border-4 border-purple-300 shadow-2xl text-center">
+            <div class="text-5xl mb-2">🧠 💭</div>
+            <h3 class="text-xl font-bold text-purple-800 mb-2">Brain Rest & Quick Reflect</h3>
+            <p class="text-slate-600 text-sm mb-4">When counting dollars, why is it easier to count the biggest notes first (like $10 or $5) before counting $2 notes and $1 coins?</p>
+            <div class="space-y-2 mb-6 text-left">
+                <button onclick="selectReflection('Because starting with bigger numbers makes adding up faster!')" class="w-full p-3 bg-purple-50 hover:bg-purple-100 rounded-xl text-xs font-bold text-purple-900 border border-purple-200 text-left bouncy">
+                    💡 Starting with bigger numbers makes adding up much faster!
+                </button>
+                <button onclick="selectReflection('Because it keeps my counting organized so I do not miss any notes.')" class="w-full p-3 bg-purple-50 hover:bg-purple-100 rounded-xl text-xs font-bold text-purple-900 border border-purple-200 text-left bouncy">
+                    💡 It keeps my counting neat and organized!
+                </button>
+            </div>
+            <button onclick="closeReflectionModal()" class="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl shadow bouncy">
+                Back to Mission! 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- Level Complete Celebration Modal -->
+    <div id="completeModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full border-4 border-emerald-300 shadow-2xl text-center">
+            <div class="text-6xl mb-3">🎉 🌟 🛒</div>
+            <h2 class="text-3xl font-black text-emerald-800 mb-1">Mission Accomplished!</h2>
+            <p class="text-slate-600 text-sm mb-4">You are an Official Singapore Primary 1 Money Hero!</p>
+            
+            <div class="bg-emerald-50 rounded-2xl p-4 mb-6 border border-emerald-200 flex justify-around items-center">
+                <div>
+                    <span class="text-xs text-slate-500 font-bold block">Final Score</span>
+                    <span id="finalScoreVal" class="text-3xl font-black text-amber-500">0</span>
+                </div>
+                <div>
+                    <span class="text-xs text-slate-500 font-bold block">Badge Earned</span>
+                    <span class="text-3xl">🏅</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button onclick="replayGame()" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-2xl shadow-md border-b-4 border-emerald-700 bouncy">
+                    Play Fresh Random Questions 🔄
+                </button>
+                <button onclick="switchTab('leaderboard')" class="flex-1 bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 rounded-2xl shadow-md border-b-4 border-sky-700 bouncy">
+                    View Leaderboard 🏆
+                </button>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<script>
+    /* Student State */
+    let studentInfo = { name: "", class: "" };
+
+    /* SVG Money Note / Coin Visual Generator (Singapore Currency Visual Style) */
+    function getSingaporeMoneySVG(value, scale = 1.0) {
+        const w = Math.round(110 * scale);
+        const h = Math.round(60 * scale);
+
+        if (value === 1) {
+            // $1 Coin (Gold Ring, Silver Inner Circle)
+            return `<svg width="${60*scale}" height="${60*scale}" viewBox="0 0 100 100" class="inline-block drop-shadow-md">
+                <circle cx="50" cy="50" r="46" fill="#f59e0b" stroke="#d97706" stroke-width="4"/>
+                <circle cx="50" cy="50" r="34" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="3"/>
+                <text x="50" y="44" font-family="Fredoka" font-size="22" font-weight="bold" fill="#78350f" text-anchor="middle">$1</text>
+                <text x="50" y="68" font-family="Inter" font-size="10" font-weight="bold" fill="#475569" text-anchor="middle">SINGAPORE</text>
+            </svg>`;
+        }
+
+        const styles = {
+            2: { bg: '#8b5cf6', stroke: '#6d28d9', title: '$2', name: 'PURPLE' },
+            5: { bg: '#10b981', stroke: '#047857', title: '$5', name: 'GREEN' },
+            10: { bg: '#f43f5e', stroke: '#be123c', title: '$10', name: 'RED' },
+            20: { bg: '#f97316', stroke: '#c2410c', title: '$20', name: 'ORANGE' },
+            50: { bg: '#0284c7', stroke: '#0369a1', title: '$50', name: 'BLUE' },
+            100: { bg: '#eab308', stroke: '#a16207', title: '$100', name: 'GOLD' }
+        }[value] || { bg: '#94a3b8', stroke: '#475569', title: `$${value}`, name: 'NOTE' };
+
+        return `<svg width="${w}" height="${h}" viewBox="0 0 140 75" class="inline-block rounded-lg drop-shadow-md transition hover:scale-105">
+            <rect x="2" y="2" width="136" height="71" rx="8" fill="${styles.bg}" stroke="${styles.stroke}" stroke-width="3"/>
+            <rect x="10" y="10" width="120" height="55" rx="5" fill="none" stroke="#ffffff" stroke-dasharray="3,3" stroke-width="1.5" opacity="0.6"/>
+            <circle cx="30" cy="37" r="16" fill="#ffffff" opacity="0.25"/>
+            <text x="110" y="32" font-family="Fredoka" font-size="22" font-weight="bold" fill="#ffffff" text-anchor="middle">${styles.title}</text>
+            <text x="30" y="43" font-family="Fredoka" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">SG</text>
+            <text x="70" y="62" font-family="Inter" font-size="8" font-weight="bold" fill="#ffffff" opacity="0.8" text-anchor="middle">SINGAPORE DOLLARS</text>
+        </svg>`;
+    }
+
+    /* Learning Deck Slides Content */
+    const deckSlides = [
+        {
+            title: "Meet Singapore Dollar Notes & Coins! 🇸🇬",
+            render: () => `
+                <p class="text-slate-600 mb-4 text-sm md:text-base">In Singapore, money is measured in <strong>Dollars ($)</strong>. Tap each note to see its value!</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-xl mx-auto">
+                    <div onclick="soundFx.playClick(); speakText('One dollar coin')" class="p-3 bg-amber-50 rounded-2xl border border-amber-200 cursor-pointer bouncy flex flex-col items-center">
+                        ${getSingaporeMoneySVG(1, 1.1)}
+                        <span class="text-xs font-bold text-amber-900 mt-2">$1 Coin</span>
+                    </div>
+                    <div onclick="soundFx.playClick(); speakText('Two dollar note')" class="p-3 bg-purple-50 rounded-2xl border border-purple-200 cursor-pointer bouncy flex flex-col items-center">
+                        ${getSingaporeMoneySVG(2, 0.9)}
+                        <span class="text-xs font-bold text-purple-900 mt-2">$2 Note</span>
+                    </div>
+                    <div onclick="soundFx.playClick(); speakText('Five dollar note')" class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 cursor-pointer bouncy flex flex-col items-center">
+                        ${getSingaporeMoneySVG(5, 0.9)}
+                        <span class="text-xs font-bold text-emerald-900 mt-2">$5 Note</span>
+                    </div>
+                    <div onclick="soundFx.playClick(); speakText('Ten dollar note')" class="p-3 bg-rose-50 rounded-2xl border border-rose-200 cursor-pointer bouncy flex flex-col items-center">
+                        ${getSingaporeMoneySVG(10, 0.9)}
+                        <span class="text-xs font-bold text-rose-900 mt-2">$10 Note</span>
+                    </div>
+                    <div onclick="soundFx.playClick(); speakText('Twenty dollar note')" class="p-3 bg-orange-50 rounded-2xl border border-orange-200 cursor-pointer bouncy flex flex-col items-center">
+                        ${getSingaporeMoneySVG(20, 0.9)}
+                        <span class="text-xs font-bold text-orange-900 mt-2">$20 Note</span>
+                    </div>
+                    <div onclick="soundFx.playClick(); speakText('Fifty dollar note')" class="p-3 bg-blue-50 rounded-2xl border border-blue-200 cursor-pointer bouncy flex flex-col items-center">
+                        ${getSingaporeMoneySVG(50, 0.9)}
+                        <span class="text-xs font-bold text-blue-900 mt-2">$50 Note</span>
+                    </div>
+                </div>`
+        },
+        {
+            title: "Smart Counting Tip: Start with the BIGGEST Note! 🧠",
+            render: () => `
+                <p class="text-slate-600 mb-4 text-sm md:text-base">Always arrange money from highest value to lowest value before counting!</p>
+                <div class="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 max-w-lg mx-auto mb-4">
+                    <p class="font-bold text-amber-900 text-sm mb-3">Example: Count $10 + $5 + $2</p>
+                    <div class="flex justify-center items-center gap-2 flex-wrap">
+                        ${getSingaporeMoneySVG(10, 0.8)}
+                        <span class="text-xl font-bold text-amber-700">+</span>
+                        ${getSingaporeMoneySVG(5, 0.8)}
+                        <span class="text-xl font-bold text-amber-700">+</span>
+                        ${getSingaporeMoneySVG(2, 0.8)}
+                    </div>
+                    <p class="mt-3 font-black text-lg text-emerald-700">Total = $10 ➔ $15 ➔ $17!</p>
+                </div>`
+        },
+        {
+            title: "Shopping at the Supermarket 🛍️",
+            render: () => `
+                <p class="text-slate-600 mb-4 text-sm md:text-base">Match the price tag to the exact dollar amount needed!</p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-6 max-w-lg mx-auto">
+                    <div class="bg-sky-50 p-4 rounded-2xl border border-sky-200 text-center">
+                        <span class="text-4xl block mb-1">🧸</span>
+                        <span class="font-bold text-sky-900">Toy Bear</span>
+                        <div class="bg-sky-500 text-white font-black px-3 py-1 rounded-full text-sm mt-2">$12</div>
+                    </div>
+                    <div class="text-2xl font-bold text-slate-400">Needs ➔</div>
+                    <div class="flex items-center gap-2">
+                        ${getSingaporeMoneySVG(10, 0.85)}
+                        <span class="font-bold">+</span>
+                        ${getSingaporeMoneySVG(2, 0.85)}
+                    </div>
+                </div>`
+        },
+        {
+            title: "Interactive Wallet Manipulator Tray 👛",
+            render: () => `
+                <p class="text-slate-600 mb-2 text-sm">Practice adding money into your wallet tray:</p>
+                <div class="flex justify-center gap-2 mb-3">
+                    <button onclick="addSlideTray(2)" class="bg-purple-100 border border-purple-300 text-purple-800 font-bold px-3 py-1 rounded-xl text-xs bouncy">+ $2</button>
+                    <button onclick="addSlideTray(5)" class="bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold px-3 py-1 rounded-xl text-xs bouncy">+ $5</button>
+                    <button onclick="addSlideTray(10)" class="bg-rose-100 border border-rose-300 text-rose-800 font-bold px-3 py-1 rounded-xl text-xs bouncy">+ $10</button>
+                    <button onclick="clearSlideTray()" class="bg-slate-200 text-slate-700 font-bold px-3 py-1 rounded-xl text-xs">Clear</button>
+                </div>
+                <div id="deckTrayDisplay" class="bg-slate-100 p-4 rounded-2xl min-h-[90px] flex flex-wrap justify-center items-center gap-2 border border-slate-300">
+                    <span class="text-slate-400 text-xs">Wallet is empty</span>
+                </div>
+                <p id="deckTrayTotal" class="text-lg font-black text-emerald-600 mt-2">Total: $0</p>`
+        }
+    ];
+
+    let currentSlideIdx = 0;
+    let deckTrayItems = [];
+
+    function renderSlide() {
+        const slide = deckSlides[currentSlideIdx];
+        document.getElementById('deckStepTag').innerText = `Slide ${currentSlideIdx + 1} of ${deckSlides.length}`;
+        document.getElementById('deckSlideContent').innerHTML = `
+            <h2 class="text-2xl font-bold text-sky-800 mb-3">${slide.title}</h2>
+            ${slide.render()}
+        `;
+        document.getElementById('deckPrevBtn').disabled = currentSlideIdx === 0;
+        
+        // Render dots
+        const dotsContainer = document.getElementById('deckDots');
+        dotsContainer.innerHTML = deckSlides.map((_, i) => 
+            `<div class="w-3 h-3 rounded-full ${i === currentSlideIdx ? 'bg-sky-500' : 'bg-slate-300'}"></div>`
+        ).join('');
+    }
+
+    function prevSlide() {
+        if (currentSlideIdx > 0) {
+            currentSlideIdx--;
+            soundFx.playClick();
+            renderSlide();
+        }
+    }
+
+    function nextSlide() {
+        if (currentSlideIdx < deckSlides.length - 1) {
+            currentSlideIdx++;
+            soundFx.playClick();
+            renderSlide();
+        } else {
+            switchTab('game');
+        }
+    }
+
+    function readCurrentSlide() {
+        const slide = deckSlides[currentSlideIdx];
+        speakText(`${slide.title}. ${slide.title.includes('Tip') ? 'Always start with the biggest note first.' : ''}`);
+    }
+
+    function addSlideTray(val) {
+        deckTrayItems.push(val);
+        soundFx.playClick();
+        updateDeckTray();
+    }
+
+    function clearSlideTray() {
+        deckTrayItems = [];
+        soundFx.playClick();
+        updateDeckTray();
+    }
+
+    function updateDeckTray() {
+        const display = document.getElementById('deckTrayDisplay');
+        const total = deckTrayItems.reduce((a, b) => a + b, 0);
+        if (deckTrayItems.length === 0) {
+            display.innerHTML = `<span class="text-slate-400 text-xs">Wallet is empty</span>`;
+        } else {
+            display.innerHTML = deckTrayItems.map(v => getSingaporeMoneySVG(v, 0.7)).join('');
+        }
+        document.getElementById('deckTrayTotal').innerText = `Total: $${total}`;
+    }
+
+    /* Tab Switching Logic */
+    function switchTab(tab) {
+        soundFx.playClick();
+        document.getElementById('sectionDeck').classList.add('hidden');
+        document.getElementById('sectionGame').classList.add('hidden');
+        document.getElementById('sectionLeaderboard').classList.add('hidden');
+
+        document.getElementById('tabDeckBtn').className = "px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition text-slate-600 hover:text-slate-900";
+        document.getElementById('tabGameBtn').className = "px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition text-slate-600 hover:text-slate-900";
+        document.getElementById('tabLeaderboardBtn').className = "px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition text-slate-600 hover:text-slate-900";
+
+        if (tab === 'deck') {
+            document.getElementById('sectionDeck').classList.remove('hidden');
+            document.getElementById('tabDeckBtn').className = "px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition bg-white text-sky-700 shadow-md";
+        } else if (tab === 'game') {
+            document.getElementById('sectionGame').classList.remove('hidden');
+            document.getElementById('tabGameBtn').className = "px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition bg-white text-sky-700 shadow-md";
+            if (questionsList.length === 0) startNewGameSession();
+        } else if (tab === 'leaderboard') {
+            document.getElementById('sectionLeaderboard').classList.remove('hidden');
+            document.getElementById('tabLeaderboardBtn').className = "px-5 py-2.5 rounded-full font-bold text-sm md:text-base transition bg-white text-sky-700 shadow-md";
+            fetchLeaderboardData();
+        }
+    }
+
+    /* Student Registration Handler */
+    function handleRegistration(e) {
+        e.preventDefault();
+        soundFx.playClick();
+        studentInfo.name = document.getElementById('regName').value.trim();
+        studentInfo.class = document.getElementById('regClass').value.trim();
+
+        document.getElementById('displayStudentName').innerText = studentInfo.name;
+        document.getElementById('displayStudentClass').innerText = studentInfo.class;
+        document.getElementById('studentBadge').classList.remove('hidden');
+        document.getElementById('diffSwitcher').classList.remove('hidden');
+        document.getElementById('registrationModal').classList.add('hidden');
+
+        speakText(`Welcome ${studentInfo.name}! Let us begin learning money!`);
+        renderSlide();
+    }
+
+    /* Game State */
+    let currentLevel = "Medium";
+    let score = 0;
+    let streak = 0;
+    let currentQIdx = 0;
+    let questionsList = [];
+    let isFirstTry = true;
+    let timerInterval = null;
+    let timerSeconds = 0;
+    let userWallet = [];
+
+    // Generator function for randomized fresh questions
+    function generateQuestionsForLevel(level) {
+        const list = [];
+        const count = 10; // Mandatory at least 10 questions per level
+
+        for (let i = 0; i < count; i++) {
+            if (level === "Easy") {
+                // Easy: Simple counting up to $20 using 1-2 note types or coins
+                const noteVal = [1, 2, 5, 10][Math.floor(Math.random() * 4)];
+                const numNotes = Math.floor(Math.random() * 3) + 1; // 1 to 3
+                const notesArr = Array(numNotes).fill(noteVal);
+                const correctSum = noteVal * numNotes;
+
+                list.push({
+                    type: "count",
+                    prompt: `Count the total money: What is the total dollar value?`,
+                    notes: notesArr,
+                    correct: correctSum,
+                    options: shuffleArray([correctSum, correctSum + noteVal, Math.max(1, correctSum - noteVal), correctSum + 2]),
+                    hint: `Count by ${noteVal}s! You have ${numNotes} item(s) worth $${noteVal} each.`
+                });
+            } else if (level === "Medium") {
+                // Medium: Mixed dollar notes/coins up to $50
+                const num10s = Math.floor(Math.random() * 3); // 0-2 tens
+                const num5s = Math.floor(Math.random() * 2);  // 0-1 fives
+                const num2s = Math.floor(Math.random() * 3);  // 0-2 twos
+                const num1s = Math.floor(Math.random() * 3);  // 0-2 ones
+
+                let notesArr = [];
+                for(let k=0; k<num10s; k++) notesArr.push(10);
+                for(let k=0; k<num5s; k++) notesArr.push(5);
+                for(let k=0; k<num2s; k++) notesArr.push(2);
+                for(let k=0; k<num1s; k++) notesArr.push(1);
+
+                if (notesArr.length === 0) notesArr = [10, 5, 2];
+
+                const correctSum = notesArr.reduce((a, b) => a + b, 0);
+
+                list.push({
+                    type: "count",
+                    prompt: `Count the money: How much money is shown below?`,
+                    notes: notesArr,
+                    correct: correctSum,
+                    options: shuffleArray([correctSum, correctSum + 5, Math.max(2, correctSum - 3), correctSum + 10]),
+                    hint: `Start by counting the largest note first ($10 or $5), then add the $2 notes and $1 coins!`
+                });
+            } else {
+                // Challenge: Word problems, multi-step buying, wallet builder up to $100, timer active
+                const items = [
+                    { name: "School Bag 🎒", cost: 25 },
+                    { name: "Storybook 📚", cost: 14 },
+                    { name: "Water Bottle 🍼", cost: 18 },
+                    { name: "Art Set 🎨", cost: 35 },
+                    { name: "Lego Set 🧩", cost: 42 }
+                ];
+                const item = items[Math.floor(Math.random() * items.length)];
+
+                list.push({
+                    type: "wallet",
+                    prompt: `Buy the ${item.name} for $${item.cost}! Tap notes below to build the exact amount.`,
+                    itemCost: item.cost,
+                    notes: [],
+                    correct: item.cost,
+                    options: [],
+                    hint: `How can you make $${item.cost}? Try using a $20 or $10 note first, then add $5 or $2 notes!`
+                });
+            }
+        }
+        return list;
+    }
+
+    function shuffleArray(arr) {
+        const unique = [...new Set(arr)];
+        return unique.sort(() => Math.random() - 0.5);
+    }
+
+    function changeDifficultyMidGame(newLevel) {
+        currentLevel = newLevel;
+        soundFx.playClick();
+        speakText(`Switched difficulty to ${newLevel} level`);
+        startNewGameSession();
+    }
+
+    function startNewGameSession() {
+        document.getElementById('levelSelect').value = currentLevel;
+        document.getElementById('gameLevelBadge').innerText = currentLevel;
+        questionsList = generateQuestionsForLevel(currentLevel);
+        currentQIdx = 0;
+        score = 0;
+        streak = 0;
+        updateScoreUI();
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        if (currentQIdx >= questionsList.length) {
+            finishGameSession();
+            return;
+        }
+
+        isFirstTry = true;
+        const q = questionsList[currentQIdx];
+        document.getElementById('questionNum').innerText = `Q ${currentQIdx + 1}/${questionsList.length}`;
+        document.getElementById('gameProgressBar').style.width = `${((currentQIdx) / questionsList.length) * 100}%`;
+        document.getElementById('qPrompt').innerText = q.prompt;
+
+        // TTS Read Aloud Question
+        speakText(q.prompt);
+
+        const visualArea = document.getElementById('qVisualArea');
+        const optionsGrid = document.getElementById('qOptionsGrid');
+        const traySection = document.getElementById('manipulatorTraySection');
+
+        visualArea.innerHTML = "";
+        optionsGrid.innerHTML = "";
+
+        if (q.type === "count") {
+            traySection.classList.add('hidden');
+            optionsGrid.classList.remove('hidden');
+
+            // Render Notes
+            q.notes.forEach(noteVal => {
+                visualArea.innerHTML += getSingaporeMoneySVG(noteVal, 0.9);
+            });
+
+            // Render Options Buttons
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "p-4 bg-sky-50 hover:bg-sky-100 border-2 border-sky-200 text-sky-900 font-bold text-xl rounded-2xl transition bouncy shadow-sm flex justify-center items-center";
+                btn.innerText = `$${opt}`;
+                btn.onclick = () => handleAnswerSubmit(opt, q.correct, q.hint);
+                optionsGrid.appendChild(btn);
+            });
+        } else if (q.type === "wallet") {
+            optionsGrid.classList.add('hidden');
+            traySection.classList.remove('hidden');
+            resetWallet();
+
+            visualArea.innerHTML = `
+                <div class="text-center">
+                    <span class="text-2xl font-bold text-slate-700">Target Cost: <span class="text-emerald-600 font-black">$${q.itemCost}</span></span>
+                </div>
+            `;
+        }
+
+        // Setup Timer for Challenge mode
+        const timerContainer = document.getElementById('timerContainer');
+        clearInterval(timerInterval);
+        if (currentLevel === "Challenge") {
+            timerContainer.classList.remove('hidden');
+            timerSeconds = 30;
+            document.getElementById('timerVal').innerText = `${timerSeconds}s`;
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                document.getElementById('timerVal').innerText = `${timerSeconds}s`;
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    soundFx.playIncorrect();
+                    showSocraticModal("Time's up! Take a breath and let us try this question together.");
+                }
+            }, 1000);
+        } else {
+            timerContainer.classList.add('hidden');
+        }
+    }
+
+    function addNoteToWallet(val) {
+        userWallet.push(val);
+        soundFx.playClick();
+        updateWalletDisplay();
+    }
+
+    function resetWallet() {
+        userWallet = [];
+        updateWalletDisplay();
+    }
+
+    function updateWalletDisplay() {
+        const total = userWallet.reduce((a, b) => a + b, 0);
+        document.getElementById('walletTotal').innerText = `$${total}`;
+    }
+
+    function submitWalletAnswer() {
+        const q = questionsList[currentQIdx];
+        const total = userWallet.reduce((a, b) => a + b, 0);
+        handleAnswerSubmit(total, q.correct, q.hint);
+    }
+
+    function handleAnswerSubmit(selectedVal, correctVal, hintText) {
+        clearInterval(timerInterval);
+
+        if (selectedVal === correctVal) {
+            soundFx.playCorrect();
+            let pointsEarned = isFirstTry ? 100 : 50;
+            streak++;
+
+            // Streak Bonus
+            if (streak >= 3) pointsEarned += 20;
+            if (streak >= 5) pointsEarned += 50;
+
+            score += pointsEarned;
+            updateScoreUI();
+
+            speakText("Correct! Wonderful job!");
+
+            currentQIdx++;
+            setTimeout(() => {
+                renderQuestion();
+            }, 600);
+        } else {
+            soundFx.playIncorrect();
+            streak = 0;
+            isFirstTry = false;
+            updateScoreUI();
+            
+            // Socratic Feedback
+            showSocraticModal(hintText);
+            logMistakeToAnalytics(studentInfo.name, studentInfo.class, currentLevel, hintText);
+        }
+    }
+
+    function updateScoreUI() {
+        document.getElementById('gameScore').innerText = score;
+        document.getElementById('gameStreak').innerText = `🔥 ${streak}`;
+    }
+
+    function showSocraticModal(hint) {
+        document.getElementById('socraticHintText').innerText = hint;
+        document.getElementById('socraticModal').classList.remove('hidden');
+        speakText(`Let's think together! ${hint}`);
+    }
+
+    function closeSocraticModal() {
+        soundFx.playClick();
+        document.getElementById('socraticModal').classList.add('hidden');
+    }
+
+    function showReflectionModal() {
+        soundFx.playClick();
+        document.getElementById('reflectionModal').classList.remove('hidden');
+    }
+
+    function selectReflection(msg) {
+        soundFx.playClick();
+        speakText(msg);
+        closeReflectionModal();
+    }
+
+    function closeReflectionModal() {
+        document.getElementById('reflectionModal').classList.add('hidden');
+    }
+
+    function finishGameSession() {
+        clearInterval(timerInterval);
+        soundFx.playCorrect();
+        document.getElementById('finalScoreVal').innerText = score;
+        document.getElementById('completeModal').classList.remove('hidden');
+
+        // Post score to Google Apps Script backend
+        sendDataToBackend({
+            action: "logScore",
+            studentName: studentInfo.name || "Anonymous",
+            studentClass: studentInfo.class || "P1",
+            score: score,
+            level: currentLevel,
+            commonMistakes: "None"
+        });
+    }
+
+    function replayGame() {
+        soundFx.playClick();
+        document.getElementById('completeModal').classList.add('hidden');
+        startNewGameSession();
+    }
+
+    function sendDataToBackend(payload) {
+        if (!GOOGLE_APPS_SCRIPT_URL || GOOGLE_APPS_SCRIPT_URL.includes("PASTE_YOUR_WEB_APP_URL_HERE")) {
+            console.log("Mock Log (Google Apps Script URL not set):", payload);
+            saveLocalLeaderboard(payload);
+            return;
+        }
+
+        fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        }).then(() => console.log("Successfully sent score to cloud!"))
+          .catch(err => console.error("Cloud logging error:", err));
+        
+        saveLocalLeaderboard(payload);
+    }
+
+    function logMistakeToAnalytics(name, cls, lvl, hint) {
+        if (!GOOGLE_APPS_SCRIPT_URL || GOOGLE_APPS_SCRIPT_URL.includes("PASTE_YOUR_WEB_APP_URL_HERE")) return;
+        fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "logMistake",
+                studentName: name || "Student",
+                studentClass: cls || "P1",
+                level: lvl,
+                mistakeHint: hint
+            })
+        });
+    }
+
+    function saveLocalLeaderboard(entry) {
+        let scores = JSON.parse(localStorage.getItem('p1_money_scores') || '[]');
+        scores.push({
+            studentName: entry.studentName,
+            class: entry.studentClass,
+            score: entry.score,
+            level: entry.level,
+            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        });
+        scores.sort((a, b) => b.score - a.score);
+        localStorage.setItem('p1_money_scores', JSON.stringify(scores));
+    }
+
+    function fetchLeaderboardData() {
+        const tbody = document.getElementById('leaderboardTbody');
+        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">Loading scores...</td></tr>`;
+
+        // Render from localStorage or mock
+        setTimeout(() => {
+            let scores = JSON.parse(localStorage.getItem('p1_money_scores') || '[]');
+            
+            // Mock entries if empty
+            if (scores.length === 0) {
+                scores = [
+                    { studentName: "Kai Xiang", class: "P1 Honesty", score: 980, level: "Challenge" },
+                    { studentName: "Siti Nurhaliza", class: "1 Integrity", score: 850, level: "Medium" },
+                    { studentName: "Devi D/O Kumar", class: "P1 Care", score: 720, level: "Medium" },
+                    { studentName: "Lucas Tan", class: "1 Hope", score: 650, level: "Easy" }
+                ];
+            }
+
+            tbody.innerHTML = scores.slice(0, 10).map((row, idx) => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100">
+                    <td class="py-3 px-4 font-bold text-amber-600">#${idx + 1}</td>
+                    <td class="py-3 px-4 font-bold text-slate-800">${row.studentName}</td>
+                    <td class="py-3 px-4 text-slate-600">${row.class}</td>
+                    <td class="py-3 px-4"><span class="bg-sky-100 text-sky-800 text-xs font-bold px-2.5 py-1 rounded-full">${row.level}</span></td>
+                    <td class="py-3 px-4 text-right font-black text-emerald-600">${row.score} pts</td>
+                </tr>
+            `).join('');
+        }, 300);
+    }
+
+    // Auto initialize deck on load
+    window.onload = function() {
+        renderSlide();
+    }
+</script>
+</body>
+</html>
